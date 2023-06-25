@@ -8,6 +8,8 @@ ssl._create_default_https_context = ssl._create_unverified_context
 import requests
 import random
 
+import re
+
 food_categories = requests.get("https://gist.githubusercontent.com/peterdemin/920ec3eaaa0a9f3cafd3a855557f5e0c/raw/9c7337d7f6274de704f9018ed363d51dd7a0b128/food.txt").text.lower().split('\n')
 negative = ["bowl"]
 
@@ -32,6 +34,7 @@ def parse_ingredients(raw_ingredients):
                 ingredients.append(word)
     ingredients = list(set(ingredients))
     return ingredients
+
     
 def recipe(ingredients):
     prompt = "Recipe with "
@@ -46,23 +49,30 @@ def recipe(ingredients):
         dish = out[0]
         name = dish["name"]
         ingredients = parse_ingredients(dish["ingredients"])
+        ingredients_out_raw = dish["ingredients"]
+        ingredients_out = []
+        CLEANR = re.compile('<.*?>')   
+        for ing in ingredients_out_raw:
+            cleantext = re.sub(CLEANR, '', ing)
+            ingredients_out.append(cleantext)
         description = dish["description"]
+        description = re.sub(CLEANR, '', description)
         instructions = dish["instructions"]
-        if  dish["image_path"] is not None:
+        if  dish["image_path"] != "None" and dish["image_path"] != None:
             image = "https://recipes.eerieemu.com"+ dish["image_path"]
-            return name, ingredients, description, instructions, image
+            return name, ingredients, description, instructions, image, ingredients_out
         else:
             image = -1
-            return name, ingredients, description, instructions, -1
+            return name, ingredients, description, instructions, -1, ingredients_out
     else:
         return -1, -1, -1, -1, -1
     
 @app.route('/recommend', methods=['POST'])
 def recommend():
     url = request.json["link"]
-    name, ingredients, description, instructions, image = recipe(predict(url))
+    name, ingredients, description, instructions, image, ingredients_out = recipe(predict(url))
     if name != -1:
-        return jsonify({'name': name, 'description': description, 'ingredients': ingredients, 'instructions': instructions, 'image' : image if image == -1 else None})
+        return jsonify({'name': name, 'description': description, 'ingredients': ingredients, 'instructions': instructions, 'image' : image if image == -1 else None, 'ingredients_out' : ingredients_out})
     else:
         return jsonify({'error': 'no dishes found' })
 
